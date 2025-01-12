@@ -16,23 +16,24 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Adiciona o id do usuário, email e phone
         data['user_id'] = self.user.id
         data['email'] = self.user.email
-        data['phone'] = self.user.phone
+       # data['phone'] = self.user.phone
         return data
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'email', 'username', 'phone', 'password')
-        extra_kwargs = {'password': {'write_only': True}, 'username': {'read_only': True}} # Tornar username como read_only
+        extra_kwargs = {'password': {'write_only': True}, 'username': {'read_only': True}}
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
-        email = validated_data.get('email')
-        instance = self.Meta.model(**validated_data)
+        instance = super().create(validated_data) # Cria o usuário primeiro
 
-        # Gerar username único a partir do email
-        instance.username = slugify(email.split('@')[0])  # Ou use outra lógica para gerar um username único
-
+        # Gerar username único a partir do email após a criação do usuário
+        instance.username = slugify(instance.email.split('@')[0])
+        while User.objects.filter(username=instance.username).exists():
+            instance.username += str(User.objects.filter(username=instance.username).count())
+        
         if password is not None:
             instance.set_password(password)
         instance.save()
