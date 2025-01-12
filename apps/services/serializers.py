@@ -1,18 +1,14 @@
-# apps/services/serializers.py
 from rest_framework import serializers
-from .models import Company, Professional, Service
+from .models import Service, ServiceCategory
 
-class CompanySerializer(serializers.ModelSerializer):
+class ServiceCategorySerializer(serializers.ModelSerializer):
     class Meta:
-        model = Company
+        model = ServiceCategory
         fields = '__all__'
 
-class ProfessionalSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Professional
-        fields = '__all__'
-        
 class ServiceSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True)
+
     class Meta:
         model = Service
         fields = '__all__'

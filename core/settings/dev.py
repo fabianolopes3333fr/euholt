@@ -24,6 +24,7 @@ DATABASES = {
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Configurações do CORS
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # Porta do frontend em desenvolvimento
     "http://localhost:3000",  # Porta alternativa comum para React

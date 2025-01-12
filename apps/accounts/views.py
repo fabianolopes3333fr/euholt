@@ -1,24 +1,56 @@
-from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import MyTokenObtainPairSerializer
-from django.contrib.auth import get_user_model
-from rest_framework import generics, permissions, status
+# apps/accounts/views.py
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from .serializers import UserSerializer
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.db import transaction
+from .models import User, Company
+from .serializers import UserSerializer, CompanySerializer
 
-User = get_user_model()
 
-class UserCreate(generics.CreateAPIView):
+class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = (permissions.AllowAny,)
+    
+    def get_queryset(self):
+        # Filtra usuários pela empresa atual
+        return super().get_queryset().filter(company=self.request.user.company)
 
-    def create(self, request, *args, **kwargs):
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
+    def register_company(self, request):
+        """Registra uma nova empresa com usuário admin"""
+        with transaction.atomic():
+            # Cria a empresa
+            company_serializer = CompanySerializer(data=request.data.get('company'))
+            company_serializer.is_valid(raise_exception=True)
+            company = company_serializer.save()
+
+            # Cria o usuário admin
+            user_data = request.data.get('user')
+            user_data['company'] = company.id
+            user_data['is_staff_member'] = True
+            user_serializer = self.get_serializer(data=user_data)
+            user_serializer.is_valid(raise_exception=True)
+            user = user_serializer.save()
+
+            return Response({
+                'company': company_serializer.data,
+                'user': user_serializer.data
+            }, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
+    def register(self, request):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        return Response({"user": UserSerializer(user, context=self.get_serializer_context()).data,
-                         "message": "User Created Successfully. Now perform Login to get your token"},
-                        status=status.HTTP_201_CREATED)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class MyTokenObtainPairView(TokenObtainPairView):
-    serializer_class = MyTokenObtainPairSerializer
+    @action(detail=False, methods=['get'])
+    def me(self, request):
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data)
+
+class CompanyViewSet(viewsets.ModelViewSet):
+    queryset = Company.objects.all()
+    serializer_class = CompanySerializer
